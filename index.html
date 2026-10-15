@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f5f4a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>OCR Arabe</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--tx:#1d1d1b;--mut:#6b6b66;--pr:#1f5f4a;--pr2:#e3efe9;--bd:#d9d6cc;--er:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#141614;--card:#1e211f;--tx:#ecebe6;--mut:#9a9a92;--pr:#5fbf9f;--pr2:#1f2e28;--bd:#33382f;--er:#f2b8b5}}
+:root[data-theme=light]{--bg:#f6f4ef;--card:#fff;--tx:#1d1d1b;--mut:#6b6b66;--pr:#1f5f4a;--pr2:#e3efe9;--bd:#d9d6cc;--er:#b3261e}
+:root[data-theme=dark]{--bg:#141614;--card:#1e211f;--tx:#ecebe6;--mut:#9a9a92;--pr:#5fbf9f;--pr2:#1f2e28;--bd:#33382f;--er:#f2b8b5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:40px}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--pr);color:#fff;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0}
+header button{background:transparent;border:1px solid #fff8;color:#fff;border-radius:8px;padding:6px 10px;font-size:14px}
+main{max-width:720px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 10px;color:var(--pr)}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+button,.btn,select,input[type=text],input[type=password],input[type=email]{font:inherit}
+.btn,button.b{background:var(--pr2);color:var(--pr);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
+.btn.main,button.main{background:var(--pr);color:#fff;border-color:var(--pr)}
+button:disabled{opacity:.5}
+input[type=file]{display:none}
+select,input[type=text],input[type=password],input[type=email]{width:100%;padding:9px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+label{display:block;font-size:14px;margin:8px 0 3px;color:var(--mut)}
+.chk{display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--tx);font-size:15px}
+canvas{max-width:100%;border-radius:10px;border:1px solid var(--bd);background:#fff;display:block;margin:8px auto 0}
+textarea{width:100%;min-height:180px;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:18px;line-height:1.8}
+#ar{direction:rtl;text-align:right;font-family:"Amiri","Noto Naskh Arabic","Traditional Arabic",serif}
+#fr{direction:ltr}
+.bar{height:8px;background:var(--pr2);border-radius:6px;overflow:hidden;margin-top:8px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--pr);transition:width .2s}
+#st{font-size:14px;color:var(--mut);margin-top:6px;min-height:20px}
+#st.err{color:var(--er)}
+.note{font-size:13px;color:var(--mut);margin-top:8px}
+details summary{cursor:pointer;font-weight:600;color:var(--pr)}
+.h{border-top:1px solid var(--bd);padding:8px 0;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.h span{font-size:13px;color:var(--mut);direction:rtl;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:60%}
+</style>
+</head>
+<body>
+<header><h1>OCR Arabe — manuscrits et imprimés</h1><button id="theme">Thème</button></header>
+<main>
+
+<div class="card">
+<h2>1. Image</h2>
+<div class="row">
+<label class="btn main" for="cam">Prendre une photo</label>
+<label class="btn" for="gal">Galerie</label>
+<input id="cam" type="file" accept="image/*" capture="environment">
+<input id="gal" type="file" accept="image/*">
+<button class="b" id="rot">Pivoter 90°</button>
+</div>
+<canvas id="cv" width="10" height="10" hidden></canvas>
+<div id="info" class="note">Aucune image chargée.</div>
+</div>
+
+<div class="card">
+<h2>2. Prétraitement</h2>
+<div class="chk"><input type="checkbox" id="gray" checked><label for="gray" style="margin:0;color:inherit">Niveaux de gris + contraste automatique</label></div>
+<div class="chk"><input type="checkbox" id="bin"><label for="bin" style="margin:0;color:inherit">Binarisation (noir et blanc, méthode d'Otsu)</label></div>
+<div class="chk"><input type="checkbox" id="adp" checked><label for="adp" style="margin:0;color:inherit">Atténuer les taches et le fond jauni (seuil local)</label></div>
+<div class="note">Pour un manuscrit ancien, essayez avec puis sans binarisation et comparez.</div>
+</div>
+
+<div class="card">
+<h2>3. Reconnaissance</h2>
+<label for="eng">Moteur</label>
+<select id="eng">
+<option value="tess">Hors ligne — Tesseract (gratuit, sans internet)</option>
+<option value="space">Avancée — OCR.space (gratuit, internet + clé gratuite)</option>
+</select>
+<label for="lang">Langue(s)</label>
+<select id="lang">
+<option value="ara">Arabe</option>
+<option value="ara+fra">Arabe + français</option>
+<option value="ara+eng">Arabe + anglais</option>
+</select>
+<div id="spacebox" style="display:none">
+<label for="key">Clé OCR.space (gratuite sur ocr.space/ocrapi)</label>
+<input type="password" id="key" placeholder="Collez votre clé ici" autocomplete="off">
+<label for="oe">Moteur OCR.space</label>
+<select id="oe"><option value="1">Moteur 1 (recommandé pour l'arabe)</option><option value="2">Moteur 2</option></select>
+</div>
+<div class="row" style="margin-top:12px"><button class="main btn" id="go" disabled>Lancer la reconnaissance</button></div>
+<div class="bar" id="bar"><i id="bi"></i></div>
+<div id="st"></div>
+<div class="note">Le premier lancement hors ligne télécharge le modèle arabe (environ 10 à 15 Mo), puis il reste en mémoire.</div>
+</div>
+
+<div class="card">
+<h2>4. Texte arabe (modifiable)</h2>
+<textarea id="ar" placeholder="Le texte reconnu apparaîtra ici…"></textarea>
+<div class="row" style="margin-top:8px">
+<button class="b" id="cp">Copier</button>
+<button class="b" id="dl">Enregistrer .txt</button>
+<button class="b" id="sh">Partager</button>
+<button class="b" id="sv">Garder dans l'historique</button>
+</div>
+<div class="note">Vérifiez toujours le texte reconnu : sur un manuscrit, des mots peuvent être faux ou manquants.</div>
+</div>
+
+<div class="card">
+<h2>5. Traduction en français</h2>
+<label for="mail">Adresse e-mail (facultatif : augmente le quota gratuit de MyMemory)</label>
+<input type="email" id="mail" placeholder="vous@exemple.com" autocomplete="off">
+<div class="row" style="margin-top:10px"><button class="main btn" id="tr">Traduire en français</button></div>
+<textarea id="fr" style="margin-top:10px" placeholder="La traduction apparaîtra ici…"></textarea>
+<div class="row" style="margin-top:8px">
+<button class="b" id="cp2">Copier</button>
+<button class="b" id="dl2">Enregistrer .txt</button>
+</div>
+<div class="note">Traduction automatique (MyMemory, internet requis) : à relire, surtout pour un texte historique ou administratif.</div>
+</div>
+
+<div class="card">
+<details><summary>Historique</summary><div id="hist" style="margin-top:8px"></div></details>
+</div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(i){return document.getElementById(i)};
+var cv=$('cv'),ctx=cv.getContext('2d',{willReadFrequently:true});
+var srcImg=null,rot=0;
+
+function setSt(t,e){var s=$('st');s.textContent=t||'';s.className=e?'err':''}
+function prog(p){$('bar').style.display=p==null?'none':'block';$('bi').style.width=Math.round((p||0)*100)+'%'}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+/* Thème */
+$('theme').onclick=function(){var r=document.documentElement,d=r.getAttribute('data-theme');
+var cur=d||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+var n=cur==='dark'?'light':'dark';r.setAttribute('data-theme',n);ls('ocr_theme',n)};
+if(ls('ocr_theme'))document.documentElement.setAttribute('data-theme',ls('ocr_theme'));
+
+/* Réglages mémorisés */
+['key','mail'].forEach(function(i){var v=ls('ocr_'+i);if(v)$(i).value=v;$(i).onchange=function(){ls('ocr_'+i,$(i).value.trim())}});
+['eng','lang','oe'].forEach(function(i){var v=ls('ocr_'+i);if(v)$(i).value=v;$(i).onchange=function(){ls('ocr_'+i,$(i).value);if(i==='eng')sync()}});
+function sync(){$('spacebox').style.display=$('eng').value==='space'?'block':'none'}
+sync();
+
+/* Chargement de l'image */
+function load(f){
+ if(!f)return;
+ var u=URL.createObjectURL(f),im=new Image();
+ im.onload=function(){srcImg=im;rot=0;render();$('go').disabled=false;
+  $('info').textContent=im.naturalWidth+' × '+im.naturalHeight+' px';setSt('')};
+ im.onerror=function(){setSt('Image illisible.',true)};
+ im.src=u;
+}
+$('cam').onchange=function(e){load(e.target.files[0]);e.target.value=''};
+$('gal').onchange=function(e){load(e.target.files[0]);e.target.value=''};
+$('rot').onclick=function(){if(srcImg){rot=(rot+90)%360;render()}};
+['gray','bin','adp'].forEach(function(i){$(i).onchange=function(){if(srcImg)render()}});
+
+function render(){
+ var w=srcImg.naturalWidth,h=srcImg.naturalHeight;
+ var max=2400,min=1400,s=1,L=Math.max(w,h);
+ if(L>max)s=max/L;else if(L<min)s=Math.min(2,min/L);
+ var tw=Math.round(w*s),th=Math.round(h*s);
+ var sw=(rot%180===0)?tw:th,sh=(rot%180===0)?th:tw;
+ cv.width=sw;cv.height=sh;
+ ctx.save();ctx.fillStyle='#fff';ctx.fillRect(0,0,sw,sh);
+ ctx.translate(sw/2,sh/2);ctx.rotate(rot*Math.PI/180);
+ ctx.drawImage(srcImg,-tw/2,-th/2,tw,th);ctx.restore();
+ var id=ctx.getImageData(0,0,sw,sh),d=id.data,n=sw*sh,g=new Uint8ClampedArray(n),i;
+ if($('gray').checked||$('bin').checked||$('adp').checked){
+  for(i=0;i<n;i++)g[i]=(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2])|0;
+  if($('adp').checked)g=localNorm(g,sw,sh);
+  if($('gray').checked||$('adp').checked)g=stretch(g);
+  if($('bin').checked){var t=otsu(g);for(i=0;i<n;i++)g[i]=g[i]>t?255:0}
+  for(i=0;i<n;i++){d[i*4]=d[i*4+1]=d[i*4+2]=g[i];d[i*4+3]=255}
+  ctx.putImageData(id,0,0);
+ }
+ cv.hidden=false;
+}
+function stretch(g){
+ var h=new Array(256).fill(0),i,n=g.length;
+ for(i=0;i<n;i++)h[g[i]]++;
+ var lo=0,hi=255,a=0,c=n*0.01;
+ for(i=0;i<256;i++){a+=h[i];if(a>c){lo=i;break}}
+ a=0;for(i=255;i>=0;i--){a+=h[i];if(a>c){hi=i;break}}
+ if(hi<=lo)return g;
+ var o=new Uint8ClampedArray(n),k=255/(hi-lo);
+ for(i=0;i<n;i++)o[i]=(g[i]-lo)*k;
+ return o;
+}
+function otsu(g){
+ var h=new Array(256).fill(0),i,n=g.length,sum=0;
+ for(i=0;i<n;i++)h[g[i]]++;
+ for(i=0;i<256;i++)sum+=i*h[i];
+ var sb=0,wb=0,mx=0,t=128;
+ for(i=0;i<256;i++){wb+=h[i];if(!wb)continue;var wf=n-wb;if(!wf)break;
+  sb+=i*h[i];var mb=sb/wb,mf=(sum-sb)/wf,v=wb*wf*(mb-mf)*(mb-mf);if(v>mx){mx=v;t=i}}
+ return t;
+}
+/* Normalisation locale : divise par le fond estimé (flou de grande taille) pour éliminer taches et jaunissement */
+function localNorm(g,w,h){
+ var f=8,sw=Math.max(1,Math.round(w/f)),sh=Math.max(1,Math.round(h/f));
+ var tmp=document.createElement('canvas');tmp.width=sw;tmp.height=sh;
+ var tc=tmp.getContext('2d',{willReadFrequently:true});
+ var gc=document.createElement('canvas');gc.width=w;gc.height=h;
+ var gx=gc.getContext('2d');var gi=gx.createImageData(w,h),i;
+ for(i=0;i<w*h;i++){gi.data[i*4]=gi.data[i*4+1]=gi.data[i*4+2]=g[i];gi.data[i*4+3]=255}
+ gx.putImageData(gi,0,0);
+ tc.drawImage(gc,0,0,sw,sh);
+ var bc=document.createElement('canvas');bc.width=w;bc.height=h;
+ var bx=bc.getContext('2d',{willReadFrequently:true});
+ bx.filter='blur('+Math.max(8,Math.round(Math.min(w,h)/40))+'px)';
+ bx.drawImage(tmp,0,0,w,h);
+ var bd=bx.getImageData(0,0,w,h).data,o=new Uint8ClampedArray(w*h);
+ for(i=0;i<w*h;i++){var b=bd[i*4]||1;o[i]=Math.min(255,(g[i]/b)*235)}
+ return o;
+}
+
+/* Reconnaissance */
+$('go').onclick=function(){
+ if(!srcImg)return;
+ $('go').disabled=true;$('ar').value='';
+ var p=$('eng').value==='space'?ocrSpace():ocrTess();
+ p.then(function(t){
+   $('ar').value=(t||'').trim();
+   setSt(t&&t.trim()?'Reconnaissance terminée. Relisez et corrigez le texte.':'Aucun texte détecté. Essayez un autre prétraitement ou le moteur avancé.',!(t&&t.trim()));
+ }).catch(function(e){setSt('Erreur : '+(e&&e.message?e.message:e),true)})
+ .then(function(){$('go').disabled=false;prog(null)});
+};
+
+function ocrTess(){
+ if(typeof Tesseract==='undefined')return Promise.reject(new Error('Tesseract non chargé : connectez-vous à internet une première fois.'));
+ setSt('Initialisation du moteur…');prog(0);
+ var w;
+ return Tesseract.createWorker($('lang').value,1,{logger:function(m){
+   if(m.status==='recognizing text'){prog(m.progress);setSt('Reconnaissance… '+Math.round(m.progress*100)+' %')}
+   else if(m.status&&m.status.indexOf('loading')===0){prog(m.progress||0);setSt('Chargement : '+m.status.replace(/_/g,' '))}
+ }}).then(function(x){w=x;
+   return w.setParameters({preserve_interword_spaces:'1',tessedit_pageseg_mode:'6'});
+ }).then(function(){return w.recognize(cv)})
+ .then(function(r){return w.terminate().then(function(){return r.data.text})});
+}
+
+function toBlob(q){return new Promise(function(res){cv.toBlob(res,'image/jpeg',q)})}
+function ocrSpace(){
+ var key=$('key').value.trim();
+ if(!key)return Promise.reject(new Error('Saisissez votre clé OCR.space (gratuite).'));
+ ls('ocr_key',key);
+ setSt('Préparation de l\'image…');prog(0.1);
+ var q=0.92;
+ function shrink(){return toBlob(q).then(function(b){if(b.size>1000000&&q>0.4){q-=0.15;return shrink()}return b})}
+ return shrink().then(function(b){
+  if(b.size>1000000)throw new Error('Image trop lourde pour le quota gratuit (1 Mo).');
+  var fd=new FormData();
+  fd.append('apikey',key);fd.append('language','ara');fd.append('OCREngine',$('oe').value);
+  fd.append('scale','true');fd.append('isOverlayRequired','false');fd.append('file',b,'scan.jpg');
+  setSt('Envoi à OCR.space…');prog(0.5);
+  return fetch('https://api.ocr.space/parse/image',{method:'POST',body:fd});
+ }).then(function(r){return r.json()}).then(function(j){
+  if(j.IsErroredOnProcessing){var m=j.ErrorMessage;throw new Error(Array.isArray(m)?m.join(' '):(m||'Erreur OCR.space'))}
+  return (j.ParsedResults||[]).map(function(x){return x.ParsedText}).join('\n');
+ });
+}
+
+/* Traduction (MyMemory) */
+function chunks(t){
+ var lines=t.split(/\n+/),out=[],cur='';
+ lines.forEach(function(l){
+  l=l.trim();if(!l)return;
+  while(l.length>400){var cut=l.lastIndexOf(' ',400);if(cut<100)cut=400;
+   if(cur){out.push(cur);cur=''}out.push(l.slice(0,cut));l=l.slice(cut).trim()}
+  if((cur+' '+l).length>400){out.push(cur);cur=l}else cur=cur?cur+' '+l:l;
+ });
+ if(cur)out.push(cur);return out;
+}
+$('tr').onclick=function(){
+ var t=$('ar').value.trim();
+ if(!t){setSt('Aucun texte arabe à traduire.',true);return}
+ var cs=chunks(t),res=[],i=0,mail=$('mail').value.trim();
+ $('tr').disabled=true;$('fr').value='';prog(0);
+ function next(){
+  if(i>=cs.length)return Promise.resolve();
+  setSt('Traduction… '+(i+1)+' / '+cs.length);prog(i/cs.length);
+  var u='https://api.mymemory.translated.net/get?q='+encodeURIComponent(cs[i])+'&langpair=ar|fr'+(mail?'&de='+encodeURIComponent(mail):'');
+  return fetch(u).then(function(r){return r.json()}).then(function(j){
+   var s=j&&j.responseData&&j.responseData.translatedText;
+   if(!s||/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(s)||j.responseStatus==429)throw new Error('Quota gratuit MyMemory atteint ou requête refusée. Réessayez plus tard ou renseignez une adresse e-mail.');
+   res.push(s);i++;$('fr').value=res.join('\n');return next();
+  });
+ }
+ next().then(function(){setSt('Traduction terminée. À relire.')})
+ .catch(function(e){setSt('Erreur : '+(e.message||e),true)})
+ .then(function(){$('tr').disabled=false;prog(null)});
+};
+
+/* Export */
+function copy(id){var v=$(id).value;if(!v)return;
+ (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(function(){setSt('Copié.')},function(){$(id).select();document.execCommand('copy');setSt('Copié.')})}
+function save(id,name){var v=$(id).value;if(!v)return;
+ var b=new Blob(['\ufeff'+v],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(b);a.download=name+'.txt';document.body.appendChild(a);a.click();a.remove()}
+$('cp').onclick=function(){copy('ar')};$('cp2').onclick=function(){copy('fr')};
+$('dl').onclick=function(){save('ar','texte-arabe')};$('dl2').onclick=function(){save('fr','traduction-fr')};
+$('sh').onclick=function(){var v=$('ar').value;if(!v)return;
+ if(navigator.share)navigator.share({text:v}).catch(function(){});else copy('ar')};
+
+/* Historique */
+function getH(){try{return JSON.parse(ls('ocr_hist')||'[]')}catch(e){return[]}}
+function drawH(){
+ var h=getH(),box=$('hist');box.innerHTML='';
+ if(!h.length){box.textContent='Vide.';return}
+ h.forEach(function(x,idx){
+  var d=document.createElement('div');d.className='h';
+  var s=document.createElement('span');s.textContent=x.ar.slice(0,60);
+  var b=document.createElement('button');b.className='b';b.textContent='Ouvrir';
+  b.onclick=function(){$('ar').value=x.ar;$('fr').value=x.fr||'';scrollTo(0,0)};
+  var r=document.createElement('button');r.className='b';r.textContent='Suppr.';
+  r.onclick=function(){var a=getH();a.splice(idx,1);ls('ocr_hist',JSON.stringify(a));drawH()};
+  var dt=document.createElement('span');dt.textContent=x.d;dt.style.direction='ltr';
+  d.appendChild(s);d.appendChild(dt);d.appendChild(b);d.appendChild(r);box.appendChild(d);
+ });
+}
+$('sv').onclick=function(){var v=$('ar').value.trim();if(!v)return;
+ var a=getH();a.unshift({d:new Date().toLocaleString('fr-FR'),ar:v,fr:$('fr').value});
+ ls('ocr_hist',JSON.stringify(a.slice(0,30)));drawH();setSt('Ajouté à l\'historique.')};
+drawH();
+
+/* Service worker */
+if('serviceWorker' in navigator)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});
+})();
+</script>
+</body>
+</html>
